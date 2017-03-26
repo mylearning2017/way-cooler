@@ -28,18 +28,16 @@ extern crate cairo;
 #[macro_use]
 mod macros;
 mod convert;
-
 mod callbacks;
 mod keys;
-
 mod lua;
 mod registry;
 mod commands;
 mod ipc;
-
 mod layout;
-
 mod render;
+mod lockscreen;
+
 
 use std::env;
 use std::fs::File;
