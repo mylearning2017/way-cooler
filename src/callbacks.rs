@@ -19,7 +19,7 @@ use super::lua::{self, LuaQuery};
 
 use ::render::screen_scrape::{read_screen_scrape_lock, scraped_pixels_lock,
                               sync_scrape};
-use ::lockscreen::{LockScreen, try_lock_lock_screen, lock_lock_screen};
+use ::lockscreen::{try_lock_lock_screen, lock_lock_screen};
 
 use registry::{self};
 
@@ -169,8 +169,8 @@ pub extern fn view_created(view: WlcView) -> bool {
 pub extern fn view_destroyed(view: WlcView) {
     trace!("view_destroyed: {:?}", view);
     if let Ok(mut lock_screen) = lock_lock_screen() {
-        let mut inner_lock_screen = lock_screen.take();
-        if let Some(mut inner_lock_screen) = inner_lock_screen {
+        let inner_lock_screen = lock_screen.take();
+        if let Some(inner_lock_screen) = inner_lock_screen {
             *lock_screen = inner_lock_screen.remove_if_match(view);
             if lock_screen.is_none() {
                 trace!("Removing lock screen");
