@@ -19,7 +19,7 @@ use super::lua::{self, LuaQuery};
 
 use ::render::screen_scrape::{read_screen_scrape_lock, scraped_pixels_lock,
                               sync_scrape};
-use ::lockscreen::{LockScreen, lock_lock_screen};
+use ::lockscreen::{LockScreen, try_lock_lock_screen, lock_lock_screen};
 
 use registry::{self};
 
@@ -89,16 +89,18 @@ pub extern fn post_render(output: WlcOutput) {
 }
 
 pub extern fn view_created(view: WlcView) -> bool {
-    debug!("view_created: {:?}: \"{}\"", view, view.get_title());
     if let Ok(mut lock_screen) = lock_lock_screen() {
         if let Some(ref mut lock_screen) = *lock_screen {
             // this will focus and set the size if necessary.
             if lock_screen.add_view_if_match(view) {
                 trace!("Adding lockscreen");
-                return true;
+                return true
+            } else {
+                return false
             }
         }
     }
+    debug!("view_created: {:?}: \"{}\"", view, view.get_title());
     let lock = registry::clients_read();
     let client = lock.client(Uuid::nil()).unwrap();
     let handle = registry::ReadHandle::new(&client);
@@ -191,11 +193,18 @@ pub extern fn view_destroyed(view: WlcView) {
 }
 
 pub extern fn view_focus(current: WlcView, focused: bool) {
+    if let Ok(lock_screen) = try_lock_lock_screen() {
+        if let Some(ref lock_screen) = *lock_screen {
+            lock_screen.view().map(|v| v.set_state(VIEW_ACTIVATED, focused));
+            return
+        }
+    }
     trace!("view_focus: {:?} {}", current, focused);
     current.set_state(VIEW_ACTIVATED, focused);
     if let Ok(mut tree) = try_lock_tree() {
         match tree.set_active_view(current) {
             Ok(_) => {},
+            Err(TreeError::ViewNotFound(_)) => {},
             Err(err) => {
                 error!("Could not set {:?} to be active view: {:?}", current, err);
             }
@@ -208,6 +217,7 @@ pub extern fn view_props_changed(view: WlcView, prop: ViewPropertyType) {
         if let Ok(mut tree) = try_lock_tree() {
             match tree.update_title(view) {
                 Ok(_) => {},
+                Err(TreeError::ViewNotFound(_)) => {},
                 Err(err) => {
                     error!("Could not update title for view {:?} because {:#?}",
                            view, err);
@@ -223,6 +233,11 @@ pub extern fn view_move_to_output(current: WlcView,
 }
 
 pub extern fn view_request_state(view: WlcView, state: ViewState, toggle: bool) {
+    if let Ok(lock_screen) = lock_lock_screen() {
+        if lock_screen.is_some() {
+            return
+        }
+    }
     trace!("Setting {:?} to state {:?}", view, state);
     if state == VIEW_FULLSCREEN {
         if let Ok(mut tree) = try_lock_tree() {
@@ -248,6 +263,11 @@ pub extern fn view_request_state(view: WlcView, state: ViewState, toggle: bool) 
 }
 
 pub extern fn view_request_move(view: WlcView, _dest: &Point) {
+    if let Ok(lock_screen) = lock_lock_screen() {
+        if lock_screen.is_some() {
+            return
+        }
+    }
     if let Ok(mut tree) = try_lock_tree() {
         if let Err(err) = tree.set_active_view(view) {
             error!("view_request_move error: {:?}", err);
@@ -256,6 +276,11 @@ pub extern fn view_request_move(view: WlcView, _dest: &Point) {
 }
 
 pub extern fn view_request_resize(view: WlcView, edge: ResizeEdge, point: &Point) {
+    if let Ok(lock_screen) = lock_lock_screen() {
+        if lock_screen.is_some() {
+            return
+        }
+    }
     if let Ok(mut tree) = try_lock_tree() {
         match try_lock_action() {
             Ok(guard) => {
@@ -274,6 +299,12 @@ pub extern fn view_request_resize(view: WlcView, edge: ResizeEdge, point: &Point
 
 pub extern fn keyboard_key(_view: WlcView, _time: u32, mods: &KeyboardModifiers,
                            key: u32, state: KeyState) -> bool {
+    if let Ok(lock_screen) = lock_lock_screen() {
+        if let Some(ref lock_screen) = *lock_screen {
+            lock_screen.view().map(WlcView::focus);
+            return EVENT_PASS_THROUGH
+        }
+    }
     let empty_mods: KeyboardModifiers = KeyboardModifiers {
             mods: MOD_NONE,
             leds: KeyboardLed::empty()
@@ -310,6 +341,11 @@ pub extern fn keyboard_key(_view: WlcView, _time: u32, mods: &KeyboardModifiers,
 }
 
 pub extern fn view_request_geometry(view: WlcView, geometry: &Geometry) {
+    if let Ok(lock_screen) = try_lock_lock_screen() {
+        if lock_screen.is_some() {
+            return
+        }
+    }
     if let Ok(mut tree) = try_lock_tree() {
         tree.update_floating_geometry(view, *geometry).unwrap_or_else(|_| {
             warn!("Could not find view {:#?} \
@@ -322,6 +358,12 @@ pub extern fn view_request_geometry(view: WlcView, geometry: &Geometry) {
 pub extern fn pointer_button(view: WlcView, _time: u32,
                          mods: &KeyboardModifiers, button: u32,
                              state: ButtonState, point: &Point) -> bool {
+    if let Ok(lock_screen) = lock_lock_screen() {
+        if let Some(ref lock_screen) = *lock_screen {
+            lock_screen.view().map(WlcView::focus);
+            return EVENT_PASS_THROUGH
+        }
+    }
     if state == ButtonState::Pressed {
         let mouse_mod = keys::mouse_modifier();
         if button == LEFT_CLICK && !view.is_root() {
@@ -417,6 +459,12 @@ pub extern fn pointer_scroll(_view: WlcView, _time: u32,
 }
 
 pub extern fn pointer_motion(view: WlcView, _time: u32, point: &Point) -> bool {
+    if let Ok(lock_screen) = lock_lock_screen() {
+        if lock_screen.is_some() {
+            pointer::set_position(*point);
+            return EVENT_PASS_THROUGH
+        }
+    }
     let mut result = EVENT_PASS_THROUGH;
     let mut maybe_action = None;
     {
