@@ -5,6 +5,7 @@ use std::process::{Command, Stdio};
 use std::thread;
 use std::io::prelude::*;
 use layout::commands as layout_cmds;
+use lockscreen::lock_screen;
 
 use commands::{self, CommandFn};
 use layout::try_lock_tree;
@@ -99,6 +100,10 @@ pub fn register_defaults() {
     register("close_window", Arc::new(layout_cmds::remove_active));
     register("toggle_float_active", Arc::new(layout_cmds::toggle_float));
     register("toggle_float_focus", Arc::new(layout_cmds::toggle_float_focus));
+
+    // Command that spawns the lock screen.
+    // Must have one specified in the registry first in order for it to work.
+    register("lock_screen", Arc::new(lock_screen));
 }
 
 // All of the methods defined should be registered.
