@@ -19,6 +19,7 @@ use super::lua::{self, LuaQuery};
 
 use ::render::screen_scrape::{read_screen_scrape_lock, scraped_pixels_lock,
                               sync_scrape};
+use ::lockscreen::{LockScreen, lock_lock_screen};
 
 use registry::{self};
 
@@ -89,6 +90,15 @@ pub extern fn post_render(output: WlcOutput) {
 
 pub extern fn view_created(view: WlcView) -> bool {
     debug!("view_created: {:?}: \"{}\"", view, view.get_title());
+    if let Ok(mut lock_screen) = lock_lock_screen() {
+        if let Some(ref mut lock_screen) = *lock_screen {
+            // this will focus and set the size if necessary.
+            if lock_screen.add_view_if_match(view) {
+                trace!("Adding lockscreen");
+                return true;
+            }
+        }
+    }
     let lock = registry::clients_read();
     let client = lock.client(Uuid::nil()).unwrap();
     let handle = registry::ReadHandle::new(&client);
@@ -156,6 +166,16 @@ pub extern fn view_created(view: WlcView) -> bool {
 
 pub extern fn view_destroyed(view: WlcView) {
     trace!("view_destroyed: {:?}", view);
+    if let Ok(mut lock_screen) = lock_lock_screen() {
+        let mut inner_lock_screen = lock_screen.take();
+        if let Some(mut inner_lock_screen) = inner_lock_screen {
+            *lock_screen = inner_lock_screen.remove_if_match(view);
+            if lock_screen.is_none() {
+                trace!("Removing lock screen");
+                return
+            }
+        }
+    }
     match try_lock_tree() {
         Ok(mut tree) => {
             tree.remove_view(view).unwrap_or_else(|err| {
