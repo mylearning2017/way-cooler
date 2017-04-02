@@ -46,11 +46,11 @@ and is not backwards compatible with existing X11 tools, we wanted to put our st
 - Borders around windows
 - Gaps between windows
 - Basic X11 bar support (e.g [lemonbar][], [polybar][])
+- Screen grabber / screen shot taker
 
 ## Planned Features
 
 - i3 tabbed/stacked tiling
-- Screen grabber / screen shot taker
 - Notification support
 - Lock screen
 - Tiling window through configurable Lua scripts (awesome-style)
@@ -79,7 +79,7 @@ Follow the development of these features in our [issues section] or checkout our
 For users who are not on Arch or NixOS, we have provided a simple install script that you can run in the terminal in order to install Way Cooler.
 
 ```
-curl https://way-cooler.github.io/way-cooler-release-i3-default.sh -sSf | sh
+curl https://way-cooler.github.io/way-cooler-release-i3-default.sh -sSLf | sh -s way-cooler-bg  wc-grab 
 ```
 
 ## Build from source
@@ -105,7 +105,7 @@ You can try it out while running in an X environment, or switch to a TTY and run
 
 # Init File
 
-All keyboard shortcuts (except the command to exit Way Cooler) are configurable through the init file. The recommended strategy is to copy the [default configuration file](https://github.com/way-cooler/way-cooler/blob/master/config/init.lua) to `$XDG_CONFIG_HOME/way-cooler/init.lua` and edit from there.
+All keyboard shortcuts are configurable through the init file. The recommended strategy is to copy the [default configuration file](https://github.com/way-cooler/way-cooler/blob/master/config/init.lua) to `$XDG_CONFIG_HOME/way-cooler/init.lua` and edit from there.
 
 # Contributors
 Way Cooler was started by @Timidger and @SnirkImmington, but these fine people have helped us:
